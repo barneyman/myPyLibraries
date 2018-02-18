@@ -4,6 +4,10 @@ from oauth2client import file
 from oauth2client.client import flow_from_clientsecrets
 from oauth2client.file import Storage
 
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import base64
+
 from datetime import datetime
 from datetime import timedelta
 
@@ -116,6 +120,56 @@ class bjfSheetsService:
 		body={ 'values':rowValues }
 		self.service.spreadsheets().values().update(spreadsheetId=sheetID, range=rangeName, body=body, valueInputOption=valInputOption).execute()
 
+# ??
+# https://www.googleapis.com/auth/gmail.readonly
+# https://www.googleapis.com/auth/gmail
+
+# to send emails
+# https://www.googleapis.com/auth/gmail.compose
+
+class bjfGmailService:
+	def __init__(self, bjfGoogleInstance):
+		self.bjfGinstance=bjfGoogleInstance
+		self.service=build("gmail","v1",http=self.bjfGinstance.AuthorisedHTTP())
+
+	def send(self, recipient, subject, message_text,message_text_html=None):
+
+		try:
+			message = self.buildMessageMime(recipient, subject, message_text, message_text_html)
+
+			messageDetails=self.service.users().messages().send(userId='me', body=message).execute()
+
+			print ('Message Id: %s' % messageDetails['id'])
+			return messageDetails
+		except HttpError as error:
+			print ('An error occurred: %s') % error
+
+
+
+	def buildMessageMime(self, recipient, subject, message_text, message_text_html=None):
+
+		try:
+			if message_text_html is None:
+				message = MIMEText(message_text)
+			else:
+				message=MIMEMultipart('alternative')
+				message.attach(MIMEText(message_text, 'plain'))
+				message.attach(MIMEText(message_text_html, 'html'))
+
+			message['to'] = recipient
+			message['from'] = "bf@g.com"
+			message['subject'] = subject
+
+			# py2
+			# return {'raw': base64.urlsafe_b64encode(message.as_string())}
+			# py3
+			return {'raw': base64.urlsafe_b64encode(message.as_string().encode()).decode()}
+
+		except HttpError as error:
+			print ('An error occurred: %s') % error
+
+# ='https://www.googleapis.com/auth/fusiontables'
+# https://developers.google.com/api-client-library/python/guide/aaa_oauth
 
 class bjfFusionService:
 
