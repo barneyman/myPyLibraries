@@ -22,6 +22,8 @@ from googleapiclient.errors import HttpError
 import sys
 import json
 
+from pathlib import Path
+
 
 class bjfGoogle:
 
@@ -29,6 +31,14 @@ class bjfGoogle:
 		self.api_key=api_key
 
 	def Authenticate(self,client_secret_file, credential_store, scopeRequired):
+
+		# FIRST - the client_secret_file HAs to exist!
+		if not Path(client_secret_file).is_file():
+			print(client_secret_file)
+			print("client secret file must exist! Download from Google Developer Console")
+			return False;
+
+
 		# https://developers.google.com/api-client-library/python/guide/aaa_oauth
 		authStorage=Storage(credential_store)
 		self.cachedAuthorisation=authStorage.get()
@@ -54,7 +64,7 @@ class bjfGoogle:
 
 		authStorage.put(self.cachedAuthorisation)
 
-		return 
+		return True;
 
 	def AuthorisedHTTP(self):
 		#http=httplib2.Http()
