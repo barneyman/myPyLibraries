@@ -18,6 +18,7 @@ import io
 import csv
 
 from googleapiclient.errors import HttpError
+from googleapiclient.http import MediaFileUpload
 
 import sys
 import json
@@ -30,7 +31,10 @@ class bjfGoogle:
 	def __init__(self, api_key=None):
 		self.api_key=api_key
 
-	def Authenticate(self,client_secret_file, credential_store, scopeRequired):
+	# client seret file is the file you can download from the Credentials screen in Developer Console
+	# credential_storage is a file, created if nexist
+	# scopes are ['',''] array
+	def Authenticate(self, client_secret_file, credential_store, scopeRequired):
 
 		# FIRST - the client_secret_file HAs to exist!
 		if not Path(client_secret_file).is_file():
@@ -100,6 +104,10 @@ class bjfGoogle:
 		service=build("fusiontables","v2",http=self.AuthorisedHTTP())
 		return service
 
+
+
+
+	# service deprecated by Google
 	def ShortenUrl(self, longUrl):
 		# quick check
 		if self.api_key is None:
@@ -115,6 +123,51 @@ class bjfGoogle:
 		except:
 			print ("Exception occurred ",sys.exc_info()[0])
 			return longUrl
+
+# https://www.googleapis.com/auth/drive.metadata.readonly
+# https://www.googleapis.com/auth/drive
+# https://www.googleapis.com/auth/drive.file
+# remember to enable the Drive API in DevConsole
+
+class bjfDriveService:
+	def __init__(self, bjfGoogleInstance):
+		self.bjfGinstance=bjfGoogleInstance
+		self.service=build('drive', 'v3',http=self.bjfGinstance.AuthorisedHTTP())
+
+	def ListAllFiles(self):
+		results=self.service.files().list(fields="nextPageToken, files(id, name, mimeType)").execute()
+		items = results.get('files', [])
+		return items
+
+	def ListAllFolders(self):
+		results=self.service.files().list(q="mimeType='application/vnd.google-apps.folder'", fields="nextPageToken, files(id, name)").execute()
+		items = results.get('files', [])
+		return items
+
+	def ListAllFilesInFolder(self, folderId):
+		results=self.service.files().list(q="{} in parents".format(folderId), fields="nextPageToken, files(id, name)").execute()
+		items = results.get('files', [])
+		return items
+
+	def AddFile(self, sourceFileOnDisk, destFileName, mimeType, destinationFolderId=None):
+		metaData={'name':destFileName}
+
+		if destinationFolderId is not None:
+			metaData['parents']=[destinationFolderId]
+
+		upload=MediaFileUpload(sourceFileOnDisk,mimeType)
+		fileInfo=self.service.files().create(body=metaData, media_body=upload,fields="id").execute()
+
+		fileInfo['name']=destFileName
+		return fileInfo
+
+	def AddJPG(self, sourceFileOnDisk, destFileName, mimeType, destinationFolderId):
+		return AddFile(self, sourceFileOnDisk, destFileName, "image/jpeg", destinationFolderId)
+
+	def AddBinary(self, sourceFileOnDisk, destFileName, mimeType, destinationFolderId):
+		return AddFile(self, sourceFileOnDisk, destFileName, "application/octet-stream", destinationFolderId)
+
+
 
 class bjfSheetsService:
 
