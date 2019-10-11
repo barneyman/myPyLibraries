@@ -176,6 +176,11 @@ class bjfTeamDriveService(bjfDriveService):
 		items=results.get('drives', [])
 		return items
 
+	def ListAllFilesInFolder(self, folderId):
+		results=self.service.files().list(q="{} in parents".format(folderId), fields="nextPageToken, files(id, name)", includeItemsFromAllDrives=True, supportsAllDrives=True).execute()
+		items = results.get('files', [])
+		return items
+
 
 
 class bjfSheetsService:
