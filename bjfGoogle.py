@@ -167,6 +167,15 @@ class bjfDriveService:
 	def AddBinary(self, sourceFileOnDisk, destFileName, mimeType, destinationFolderId):
 		return AddFile(self, sourceFileOnDisk, destFileName, "application/octet-stream", destinationFolderId)
 
+class bjfTeamDriveService(bjfDriveService):
+	def __init__(self, bjfGoogleInstance):
+		bjfDriveService.__init__(self, bjfGoogleInstance)
+
+	def ListAllTeamDrives(self):
+		results=self.service.drives().list().execute()
+		items=results.get('drives', [])
+		return items
+
 
 
 class bjfSheetsService:
