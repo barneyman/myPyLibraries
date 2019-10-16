@@ -200,6 +200,19 @@ class bjfSheetsService:
 	def ClearSheet(self, sheetID, theRange="Sheet1!A:Z"):
 		result=self.service.spreadsheets().values().clear( spreadsheetId=sheetID, range= theRange ).execute()
 		
+	def CreateSpreadSheet(self, titleOfSheet):
+
+		spreadsheet_body = {
+				"properties": { 
+					"title": titleOfSheet
+					}
+			# TODO: Add desired entries to the request body.
+			}
+
+
+
+		result=self.service.spreadsheets().create(body=spreadsheet_body).execute()
+		return result['spreadsheetId']
 
 
 # ??
