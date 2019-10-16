@@ -197,6 +197,11 @@ class bjfSheetsService:
 		body={ 'values':rowValues }
 		self.service.spreadsheets().values().update(spreadsheetId=sheetID, range=rangeName, body=body, valueInputOption=valInputOption).execute()
 
+	def ClearSheet(self, sheetID, theRange="Sheet1!A:Z"):
+		result=self.service.spreadsheets().values().clear( spreadsheetId=sheetID, range= theRange ).execute()
+		
+
+
 # ??
 # https://www.googleapis.com/auth/gmail.readonly
 # https://www.googleapis.com/auth/gmail
