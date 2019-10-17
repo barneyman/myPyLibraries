@@ -201,18 +201,27 @@ class bjfSheetsService:
 		result=self.service.spreadsheets().values().clear( spreadsheetId=sheetID, range= theRange ).execute()
 		
 	def CreateSpreadSheet(self, titleOfSheet):
-
 		spreadsheet_body = {
 				"properties": { 
 					"title": titleOfSheet
 					}
-			# TODO: Add desired entries to the request body.
 			}
-
-
-
 		result=self.service.spreadsheets().create(body=spreadsheet_body).execute()
 		return result['spreadsheetId']
+
+	def GetSpreadSheetMeta(self, ssid):
+		# ostensibly a exists check
+		ret=self.service.spreadsheets().get(spreadsheetId=ssid).execute()
+		return ret['properties']['title']
+
+
+
+	def AddSheetToSpreadSheet(self, ssid, sheetname):
+		newSheetMeta={ "requests": [ { "addSheet":{ "properties": { "title":sheetname }  } } ] }
+
+		result=self.service.spreadsheets().batchUpdate(spreadsheetId=ssid, body=newSheetMeta).execute()
+
+		return result["replies"][0]["addSheet"]["properties"];
 
 
 # ??
