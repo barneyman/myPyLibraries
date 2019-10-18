@@ -185,6 +185,24 @@ class bjfTeamDriveService(bjfDriveService):
 
 class bjfSheetsService:
 
+
+	class bjfSheetRangeHandler:
+
+		def __init__(self, sheetProps):
+			self.sheetProps=sheetProps
+
+		def resolveRangeName(self, a1Notation):
+			return self.Title()+"!"+a1Notation
+
+		def FullRange(self):
+			grid=self.sheetProps["gridProperties"]
+			full="R[0]C[0]:R[{}]C[{}]".format(grid["rowCount"],grid["columnCount"])
+			return self.resolveRangeName(full)
+
+		def Title(self):
+			return self.sheetProps["title"]
+
+
 	def __init__(self, bjfGoogleInstance):
 		self.bjfGinstance=bjfGoogleInstance
 		self.service=build('sheets', 'v4',http=self.bjfGinstance.AuthorisedHTTP())
@@ -197,8 +215,8 @@ class bjfSheetsService:
 		body={ 'values':rowValues }
 		self.service.spreadsheets().values().update(spreadsheetId=sheetID, range=rangeName, body=body, valueInputOption=valInputOption).execute()
 
-	def ClearSheet(self, sheetID, theRange="Sheet1!A:Z"):
-		result=self.service.spreadsheets().values().clear( spreadsheetId=sheetID, range= theRange ).execute()
+	def ClearSheet(self, sheetID, bjfSheetRangeHandler):
+		result=self.service.spreadsheets().values().clear( spreadsheetId=sheetID, range= bjfSheetRangeHandler.FullRange() ).execute()
 		
 	def CreateSpreadSheet(self, titleOfSheet):
 		spreadsheet_body = {
@@ -207,21 +225,59 @@ class bjfSheetsService:
 					}
 			}
 		result=self.service.spreadsheets().create(body=spreadsheet_body).execute()
+
+		# now we only have one sheet
+		#return { "ssid": result['spreadsheetId'], "sheetRange": self.GetSheetRanges(result['spreadsheetId']) }
 		return result['spreadsheetId']
 
-	def GetSpreadSheetMeta(self, ssid):
+	def GetSheetRanges(self, ssid):
+		# list all sheets in the spreadsheet
+		ret=self._GetSpreadSheetMeta(ssid)
+		if ret is not None:
+			bjfSheets=[]
+			for sheet in ret['sheets']:
+				bjfSheets.append(self.bjfSheetRangeHandler(sheet["properties"]))
+			return bjfSheets
+
+		return None
+
+	def GetSpreadSheetTitle(self, ssid):
+		result=self._GetSpreadSheetMeta(ssid)
+		if result is not None:
+			return result['properties']['title']
+		return None
+
+
+	def _GetSpreadSheetMeta(self, ssid):
 		# ostensibly a exists check
-		ret=self.service.spreadsheets().get(spreadsheetId=ssid).execute()
-		return ret['properties']['title']
+		ret=None
+		try:
+			ret=self.service.spreadsheets().get(spreadsheetId=ssid).execute()
+		except Exception:
+			return None
+		return ret
 
 
+	# add one, optionally, if it exists, return it
+	def AddSheetToSpreadSheet(self, ssid, sheetname, failIfExists=False):
 
-	def AddSheetToSpreadSheet(self, ssid, sheetname):
+		# see if it's there
+		currentSheets=self.GetSheetRanges(ssid)
+		print "Found {} sheets".format(len(currentSheets))
+		for sheet in currentSheets:
+			print sheet.Title()
+			if sheet.Title()==sheetname:
+				if failIfExists:
+					return None
+				else:
+					return sheet
+
+		# doesnt exist - create it
 		newSheetMeta={ "requests": [ { "addSheet":{ "properties": { "title":sheetname }  } } ] }
 
 		result=self.service.spreadsheets().batchUpdate(spreadsheetId=ssid, body=newSheetMeta).execute()
 
-		return result["replies"][0]["addSheet"]["properties"];
+		return self.bjfSheetRangeHandler(result["replies"][0]["addSheet"]["properties"])
 
 
 # ??
