@@ -263,9 +263,9 @@ class bjfSheetsService:
 
 		# see if it's there
 		currentSheets=self.GetSheetRanges(ssid)
-		print "Found {} sheets".format(len(currentSheets))
+		#print "Found {} sheets".format(len(currentSheets))
 		for sheet in currentSheets:
-			print sheet.Title()
+			#print sheet.Title()
 			if sheet.Title()==sheetname:
 				if failIfExists:
 					return None
