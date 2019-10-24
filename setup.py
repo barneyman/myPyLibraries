@@ -2,7 +2,7 @@ from setuptools import setup
 
 
 setup(name='bjfGoogle',
-      version='1.1',
+      version='1.2',
       py_modules=['bjfGoogle'],
       install_requires=['google-api-python-client', 'google-auth-httplib2', 'google-auth-oauthlib', 'pathlib']
       )
