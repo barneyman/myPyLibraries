@@ -202,21 +202,25 @@ class bjfSheetsService:
 		def Title(self):
 			return self.sheetProps["title"]
 
+		def Id(self):
+			return self.sheetProps["sheetId"]
+
+
 
 	def __init__(self, bjfGoogleInstance):
 		self.bjfGinstance=bjfGoogleInstance
 		self.service=build('sheets', 'v4',http=self.bjfGinstance.AuthorisedHTTP())
 
-	def AppendSheetRange(self,sheetID, rowValues, rangeName, valInputOption="USER_ENTERED", insertOption="INSERT_ROWS"):
+	def AppendSheetRange(self,ssid, rowValues, rangeName, valInputOption="USER_ENTERED", insertOption="OVERWRITE"):
 		body={ 'values':rowValues }
-		self.service.spreadsheets().values().append(spreadsheetId=sheetID, range=rangeName, body=body, valueInputOption=valInputOption,insertDataOption=insertOption).execute()
+		self.service.spreadsheets().values().append(spreadsheetId=ssid, range=rangeName, body=body, valueInputOption=valInputOption,insertDataOption=insertOption).execute()
 
-	def UpdateSheetRange(self, sheetID, rowValues, rangeName, valInputOption="USER_ENTERED"):
+	def UpdateSheetRange(self, ssid, rowValues, rangeName, valInputOption="USER_ENTERED"):
 		body={ 'values':rowValues }
-		self.service.spreadsheets().values().update(spreadsheetId=sheetID, range=rangeName, body=body, valueInputOption=valInputOption).execute()
+		self.service.spreadsheets().values().update(spreadsheetId=ssid, range=rangeName, body=body, valueInputOption=valInputOption).execute()
 
-	def ClearSheet(self, sheetID, bjfSheetRangeHandler):
-		result=self.service.spreadsheets().values().clear( spreadsheetId=sheetID, range= bjfSheetRangeHandler.FullRange() ).execute()
+	def ClearSheet(self, ssid, bjfSheetRangeHandler):
+		result=self.service.spreadsheets().values().clear( spreadsheetId=ssid, range= bjfSheetRangeHandler.FullRange() ).execute()
 		
 	def CreateSpreadSheet(self, titleOfSheet):
 		spreadsheet_body = {
@@ -247,9 +251,16 @@ class bjfSheetsService:
 			return result['properties']['title']
 		return None
 
+	def GetSpreadSheetURL(self, ssid):
+		result=self._GetSpreadSheetMeta(ssid)
+		if result is not None:
+			return result['spreadsheetUrl']
+		return None
+
+
 
 	def _GetSpreadSheetMeta(self, ssid):
-		# ostensibly a exists check
+		# ostensibly an exists check
 		ret=None
 		try:
 			ret=self.service.spreadsheets().get(spreadsheetId=ssid).execute()
@@ -278,6 +289,22 @@ class bjfSheetsService:
 		result=self.service.spreadsheets().batchUpdate(spreadsheetId=ssid, body=newSheetMeta).execute()
 
 		return self.bjfSheetRangeHandler(result["replies"][0]["addSheet"]["properties"])
+
+
+	def FreezeView(self, ssid, sheetRange, numberOfRows):
+		freezeMeta={ "requests":[ { "updateSheetProperties": { "properties": { "sheetId": sheetRange.Id(), "gridProperties": { "frozenRowCount":numberOfRows } }, "fields":"gridProperties.frozenRowCount" } } ] }
+		result=self.service.spreadsheets().batchUpdate(spreadsheetId=ssid, body=freezeMeta).execute()
+
+	def CreateTitleRow(self, ssid, sheetRange, freezeRows=1, textColour={"red":1.0,"green":1.0,"blue":1.0}, backColour={"red":0.0,"green":0.0,"blue":0.0}):
+
+		titleMeta={ "requests":[ {"repeatCell": {"range": {"sheetId": sheetRange.Id(),"startRowIndex": 0,"endRowIndex": 1},"cell": {"userEnteredFormat": {"backgroundColor": backColour,"horizontalAlignment" : "CENTER","textFormat": {"foregroundColor": textColour,"fontSize": 12,"bold": True}}},"fields": "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)"}}, { "updateSheetProperties": { "properties": { "sheetId": sheetRange.Id(), "gridProperties": { "frozenRowCount":freezeRows } }, "fields":"gridProperties.frozenRowCount" } } ] }
+		result=self.service.spreadsheets().batchUpdate(spreadsheetId=ssid, body=titleMeta).execute()
+
+
+
+
+
+
 
 
 # ??
