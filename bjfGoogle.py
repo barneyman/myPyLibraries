@@ -186,7 +186,7 @@ class bjfTeamDriveService(bjfDriveService):
 class bjfSheetsService:
 
 
-	class bjfSheetRangeHandler:
+	class bjfSheetHandler:
 
 		def __init__(self, sheetProps):
 			self.sheetProps=sheetProps
@@ -196,8 +196,20 @@ class bjfSheetsService:
 
 		def FullRange(self):
 			grid=self.sheetProps["gridProperties"]
-			full="R[0]C[0]:R[{}]C[{}]".format(grid["rowCount"],grid["columnCount"])
+			full="R1C1:R{}C{}".format(self.NumRows(),self.NumCols())
 			return self.resolveRangeName(full)
+
+		def NumRows(self):
+			grid=self.sheetProps["gridProperties"]
+			return grid["rowCount"]
+
+		def NumCols(self):
+			grid=self.sheetProps["gridProperties"]
+			return grid["columnCount"]
+
+		def RangeR1C1(self, tl=[1,1],br=[1,1]):
+			r1c1="R{}C{}:R{}C{}".format(tl[0],tl[1],br[0],br[1]);
+			return self.resolveRangeName(r1c1)
 
 		def Title(self):
 			return self.sheetProps["title"]
@@ -213,14 +225,15 @@ class bjfSheetsService:
 
 	def AppendSheetRange(self,ssid, rowValues, rangeName, valInputOption="USER_ENTERED", insertOption="OVERWRITE"):
 		body={ 'values':rowValues }
-		self.service.spreadsheets().values().append(spreadsheetId=ssid, range=rangeName, body=body, valueInputOption=valInputOption,insertDataOption=insertOption).execute()
+		result=self.service.spreadsheets().values().append(spreadsheetId=ssid, range=rangeName, body=body, valueInputOption=valInputOption,insertDataOption=insertOption).execute()
+		return result
 
 	def UpdateSheetRange(self, ssid, rowValues, rangeName, valInputOption="USER_ENTERED"):
 		body={ 'values':rowValues }
 		self.service.spreadsheets().values().update(spreadsheetId=ssid, range=rangeName, body=body, valueInputOption=valInputOption).execute()
 
-	def ClearSheet(self, ssid, bjfSheetRangeHandler):
-		result=self.service.spreadsheets().values().clear( spreadsheetId=ssid, range= bjfSheetRangeHandler.FullRange() ).execute()
+	def ClearSheet(self, ssid, bjfSheetHandler):
+		result=self.service.spreadsheets().values().clear( spreadsheetId=ssid, range= bjfSheetHandler.FullRange() ).execute()
 		
 	def CreateSpreadSheet(self, titleOfSheet):
 		spreadsheet_body = {
@@ -231,7 +244,6 @@ class bjfSheetsService:
 		result=self.service.spreadsheets().create(body=spreadsheet_body).execute()
 
 		# now we only have one sheet
-		#return { "ssid": result['spreadsheetId'], "sheetRange": self.GetSheetRanges(result['spreadsheetId']) }
 		return result['spreadsheetId']
 
 	def GetSheetRanges(self, ssid):
@@ -240,7 +252,7 @@ class bjfSheetsService:
 		if ret is not None:
 			bjfSheets=[]
 			for sheet in ret['sheets']:
-				bjfSheets.append(self.bjfSheetRangeHandler(sheet["properties"]))
+				bjfSheets.append(self.bjfSheetHandler(sheet["properties"]))
 			return bjfSheets
 
 		return None
@@ -288,7 +300,7 @@ class bjfSheetsService:
 
 		result=self.service.spreadsheets().batchUpdate(spreadsheetId=ssid, body=newSheetMeta).execute()
 
-		return self.bjfSheetRangeHandler(result["replies"][0]["addSheet"]["properties"])
+		return self.bjfSheetHandler(result["replies"][0]["addSheet"]["properties"])
 
 
 	def FreezeView(self, ssid, sheetRange, numberOfRows):
@@ -300,9 +312,52 @@ class bjfSheetsService:
 		titleMeta={ "requests":[ {"repeatCell": {"range": {"sheetId": sheetRange.Id(),"startRowIndex": 0,"endRowIndex": 1},"cell": {"userEnteredFormat": {"backgroundColor": backColour,"horizontalAlignment" : "CENTER","textFormat": {"foregroundColor": textColour,"fontSize": 12,"bold": True}}},"fields": "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)"}}, { "updateSheetProperties": { "properties": { "sheetId": sheetRange.Id(), "gridProperties": { "frozenRowCount":freezeRows } }, "fields":"gridProperties.frozenRowCount" } } ] }
 		result=self.service.spreadsheets().batchUpdate(spreadsheetId=ssid, body=titleMeta).execute()
 
+	def ImportData(self, ssid, sheetRange, file, delim=","):
+
+		lines=0
+
+		with open(file,"r") as f:
+			lineData=f.readline()
+
+			importMeta={ "requests":[  ]}
 
 
+			while lineData:
+				
+				importMeta["requests"].append({ "pasteData": { "coordinate": { "sheetId":sheetRange.Id(), "rowIndex":lines, "columnIndex":0  }, "data": lineData, "type": "PASTE_NORMAL", "delimiter":delim } })
+				lineData=f.readline()
+				lines+=1
 
+			f.close()
+			result=self.service.spreadsheets().batchUpdate(spreadsheetId=ssid, body=importMeta).execute()
+
+		return lines
+
+
+	def _AddChart(self, ssid, theTitle, chartType, chartSpec):
+
+		chartSpec={ "title": theTitle, chartType:chartSpec }
+		chartMeta={ "spec": chartSpec, "position": { "newSheet": True } }
+		request={ "requests":[ {"addChart": { "chart":  chartMeta } } ] }
+
+		result=self.service.spreadsheets().batchUpdate(spreadsheetId=ssid, body=request).execute()
+
+
+	def AddBasicChart(self, ssid, theTitle, sheet):
+
+		domainSource={ "sourceRange":{ "sources":[ { "sheetId": sheet.Id(), "startRowIndex":0, "endRowIndex":10, "startColumnIndex": 0, "endColumnIndex": 1 } ] } }
+		
+		series1={ "sheetId": sheet.Id(), "startRowIndex":0, "endRowIndex":10, "startColumnIndex": 8, "endColumnIndex": 9 }
+		series2={ "sheetId": sheet.Id(), "startRowIndex":0, "endRowIndex":10, "startColumnIndex": 9, "endColumnIndex": 10 }
+
+		s1range={ "sourceRange":{ "sources":[ series1 ] } }
+		s2range={ "sourceRange":{ "sources":[ series2 ] } }
+		
+		seriesSource={ "sourceRange":{ "sources":[ series1 ] } }
+
+		chartSpec={ "chartType": "COLUMN", "domains": [ { "domain": domainSource } ], "series":[ { "series": s1range }, { "series": s2range } ] }
+
+		return self._AddChart(ssid, theTitle, "basicChart", chartSpec)
 
 
 
