@@ -329,6 +329,15 @@ class bjfSheetsService:
 				lines+=1
 
 			f.close()
+
+			# sheets have a default size of 1000 rows, so if we exceed that, add more 
+			if lines>2:
+				print "Adding more rows"
+				addRowsMeta={"requests":[  ]}
+				addRowsMeta["requests"].append({"insertDimension":{"range":{ "sheetId":sheetRange.Id(),"dimension": "ROWS", "startIndex":0, "endIndex":lines},"inheritFromBefore":False}})
+
+				result=self.service.spreadsheets().batchUpdate(spreadsheetId=ssid, body=addRowsMeta).execute()	
+
 			result=self.service.spreadsheets().batchUpdate(spreadsheetId=ssid, body=importMeta).execute()
 
 		return lines
